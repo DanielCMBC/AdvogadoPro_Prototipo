@@ -1,15 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AdvogadoPro Marketplace</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
 
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>AdvoLog Marketplace UI Design</title>
-    </head>
+  <body>
+    <header class="header">
+      <div class="container" style="display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;">
+        <div>
+          <h1>AdvogadoPro</h1>
+          <p class="tagline">Busque o profissional certo para seu caso.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <span id="userInfo" style="color: var(--muted);"></span>
+          <a href="/profile" class="card-action" style="padding: 0.5rem 1rem;">Perfil</a>
+          <a href="/logout" class="card-action" style="padding: 0.5rem 1rem;">Sair</a>
+        </div>
+      </div>
+    </header>
 
-    <body>
-      <div id="root"></div>
-      <script type="module" src="/src/main.tsx"></script>
-    </body>
-  </html>
-  
+    <main class="container">
+      <section class="search">
+        <label for="search" class="sr-only">Buscar</label>
+        <input id="search" type="search" placeholder="Pesquisar advogados, áreas ou cidades" />
+        <button type="button">Buscar</button>
+      </section>
+
+      <section class="results">
+        <h2>Resultados</h2>
+        <div id="lawyer-list" class="cards">
+          <div class="empty-state">
+            Os dados virão do banco de dados SQL. Integre aqui seu backend para renderizar os cards.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container">
+        <p>AdvogadoPro © <span id="year"></span>. Integre seu banco de dados SQL para mostrar resultados.</p>
+      </div>
+    </footer>
+
+    <script>
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      async function loadLawyers(query = "") {
+        const container = document.getElementById('lawyer-list');
+        container.innerHTML = '<div class="empty-state">Carregando...</div>';
+
+        try {
+          const url = query ? `/api/lawyers?q=${encodeURIComponent(query)}` : '/api/lawyers';
+          const res = await fetch(url);
+          const lawyers = await res.json();
+
+          if (!Array.isArray(lawyers) || lawyers.length === 0) {
+            container.innerHTML =
+              '<div class="empty-state">Nenhum advogado encontrado. Tente outro termo de pesquisa ou preencha o banco de dados.</div>';
+            return;
+          }
+
+          container.innerHTML = lawyers
+            .map((lawyer) => {
+              return `
+                <article class="card">
+                  <div class="card-image">Foto</div>
+                  <div class="card-body">
+                    <h3 class="card-title">${lawyer.name}</h3>
+                    <p class="card-meta">${lawyer.area} • ${lawyer.city}</p>
+                    <p class="card-info">${lawyer.description}</p>
+                    <div class="card-footer">
+                      <a class="card-action" href="/user/${lawyer.id}">Ver perfil</a>
+                    </div>
+                  </div>
+                </article>
+              `;
+            })
+            .join('');
+        } catch (error) {
+          container.innerHTML =
+            '<div class="empty-state">Erro ao carregar dados. Verifique o backend.</div>';
+          console.error(error);
+        }
+      }
+
+      function setupSearch() {
+        const input = document.getElementById('search');
+        const button = input.nextElementSibling;
+
+        function runSearch() {
+          const query = input.value.trim();
+          loadLawyers(query);
+        }
+
+        button.addEventListener('click', runSearch);
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            runSearch();
+          }
+        });
+      }
+
+      setupSearch();
+      loadLawyers();
+
+      // Show user info if available
+      async function loadUserInfo() {
+        try {
+          const res = await fetch('/api/session');
+          if (!res.ok) return;
+          const json = await res.json();
+          const info = document.getElementById('userInfo');
+          info.textContent = `${json.email} (${json.tipo})`;
+        } catch (err) {
+          // ignore
+        }
+      }
+
+      loadUserInfo();
+    </script>
+  </body>
+</html>

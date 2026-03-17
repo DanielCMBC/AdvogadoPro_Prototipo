@@ -78,6 +78,9 @@ web_modules/
 .next
 out
 
+# Uploaded profile pictures
+static/uploads/
+
 # Nuxt.js build / generate output
 .nuxt
 dist

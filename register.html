@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Criar conta - AdvogadoPro</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+
+  <body>
+    <main class="container" style="padding-top: 4rem;">
+      <section class="card" style="max-width: 450px; margin: 0 auto;">
+        <div class="card-body">
+          <h1 class="card-title" style="margin-bottom: 0.5rem;">Criar conta</h1>
+          <p class="card-meta">Cadastre-se como advogado ou cliente.</p>
+
+          <form id="registerForm" action="/register" method="post" class="form-grid" style="margin-top: 1.5rem;">
+            <div class="form-row">
+              <label>
+                Nome completo
+                <input name="nome" type="text" required autocomplete="name" />
+              </label>
+
+              <label>
+                E-mail
+                <input name="email" type="email" required autocomplete="email" />
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label>
+                Senha
+                <input name="password" type="password" required autocomplete="new-password" />
+              </label>
+
+              <label>
+                Tipo
+                <select id="tipo" name="tipo" required>
+                  <option value="advogado">Advogado</option>
+                  <option value="cliente">Cliente</option>
+                </select>
+              </label>
+            </div>
+
+            <div id="advogadoFields">
+              <div class="form-row">
+                <label>
+                  Especialização
+                  <input name="especializacao" type="text" />
+                </label>
+
+                <label>
+                  CEP
+                  <input name="cep" type="text" />
+                </label>
+              </div>
+
+              <div class="form-row">
+                <label>
+                  Casos ganhos
+                  <input name="casos_ganhos" type="number" min="0" />
+                </label>
+
+                <label>
+                  Descrição
+                  <textarea name="biografia" rows="3"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <button class="card-action" type="submit">Criar conta</button>
+          </form>
+
+          <p class="card-info" style="margin-top: 1rem;">
+            Já tem conta? <a href="/">Entrar</a>
+          </p>
+
+          <p class="card-info" id="error" style="display: none; color: #b91c1c; margin-top: 1rem;"></p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const error = params.get('error');
+      if (error) {
+        document.getElementById('error').textContent = error;
+        document.getElementById('error').style.display = 'block';
+      }
+
+      const tipo = document.getElementById('tipo');
+      const advogadoFields = document.getElementById('advogadoFields');
+
+      function updateFields() {
+        advogadoFields.style.display = tipo.value === 'advogado' ? 'block' : 'none';
+      }
+
+      tipo.addEventListener('change', updateFields);
+      updateFields();
+    </script>
+  </body>
+</html>

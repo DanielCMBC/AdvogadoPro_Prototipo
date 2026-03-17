@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Perfil do usuário - AdvogadoPro</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+
+  <body>
+    <header class="header">
+      <div class="container" style="display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;">
+        <div>
+          <h1>Perfil</h1>
+          <p class="tagline">Veja as informações do profissional.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:1rem;">
+          <a href="/app" class="card-action" style="padding: 0.5rem 1rem;">Voltar</a>
+          <a href="/logout" class="card-action" style="padding: 0.5rem 1rem;">Sair</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container" style="padding: 2rem 0;">
+      <section class="card" style="max-width: 700px; margin: 0 auto;">
+        <div class="card-body">
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+            <div id="photoPreview" style="width: 140px; height: 140px; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.04);">
+              <span style="color: var(--muted); font-size: 0.9rem; text-align: center; padding: 0.5rem;">Sem foto</span>
+            </div>
+            <div style="flex: 1; min-width: 260px;">
+              <h2 id="name" style="margin: 0;">Carregando...</h2>
+              <p id="meta" class="card-info" style="margin: 0.25rem 0 1rem;">&nbsp;</p>
+              <p id="bio" class="card-info" style="margin: 0 0 1rem;">&nbsp;</p>
+
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <a id="editButton" href="/profile" class="card-action" style="display: none;">Editar meu perfil</a>
+                <a id="messageButton" href="#" class="card-action" style="display: none;">Enviar mensagem</a>
+              </div>
+            </div>
+          </div>
+
+          <div id="details" style="margin-top: 1.5rem; display: grid; gap: 1rem;">
+            <div>
+              <strong>E-mail:</strong> <span id="email"></span>
+            </div>
+            <div>
+              <strong>Telefone:</strong> <span id="telefone"></span>
+            </div>
+            <div>
+              <strong>Endereço:</strong> <span id="endereco"></span>
+            </div>
+            <div id="extraFields" style="display: none;">
+              <div>
+                <strong>Especialização:</strong> <span id="especializacao"></span>
+              </div>
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <div><strong>CEP:</strong> <span id="cep"></span></div>
+                <div><strong>Casos ganhos:</strong> <span id="casos_ganhos"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <p id="status" class="card-info" style="display: none; margin: 1rem 0 0;"></p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      function qs(id) {
+        return document.getElementById(id);
+      }
+
+      function getQueryParam(key) {
+        const params = new URLSearchParams(window.location.search);
+        return params.get(key);
+      }
+
+      async function loadProfile() {
+        const status = qs('status');
+        function setStatus(message, isError = false) {
+          status.textContent = message;
+          status.style.display = 'block';
+          status.style.color = isError ? '#b91c1c' : 'inherit';
+        }
+
+        const userId = getQueryParam('id');
+        if (!userId) {
+          setStatus('ID de usuário não informado.', true);
+          return;
+        }
+
+        try {
+          const res = await fetch(`/api/user/${encodeURIComponent(userId)}`);
+          if (!res.ok) {
+            setStatus('Usuário não encontrado ou não autorizado.', true);
+            return;
+          }
+
+          const json = await res.json();
+
+          qs('name').textContent = json.profile?.nome || json.email;
+          qs('email').textContent = json.email || '—';
+          qs('telefone').textContent = json.profile?.telefone || '—';
+          qs('endereco').textContent = json.profile?.endereco || '—';
+          qs('bio').textContent = json.profile?.biografia || '—';
+
+          const isAdvogado = json.tipo === 'advogado';
+          const extra = qs('extraFields');
+          if (isAdvogado) {
+            extra.style.display = 'block';
+            qs('especializacao').textContent = json.profile?.especializacao || '—';
+            qs('cep').textContent = json.profile?.cep || '—';
+            qs('casos_ganhos').textContent = json.profile?.casos_ganhos ?? '—';
+          } else {
+            extra.style.display = 'none';
+          }
+
+          if (json.foto) {
+            qs('photoPreview').innerHTML = `<img src="${json.foto}" alt="Foto de perfil" style="width:100%; height:100%; object-fit:cover;" />`;
+          }
+
+          const sessionRes = await fetch('/api/session');
+          if (sessionRes.ok) {
+            const sessionJson = await sessionRes.json();
+            if (sessionJson.perfil_id === json.perfil_id && sessionJson.tipo === json.tipo) {
+              qs('editButton').style.display = 'inline-flex';
+            }
+          }
+
+          qs('messageButton').style.display = 'inline-flex';
+          qs('messageButton').href = `mailto:${encodeURIComponent(json.email)}`;
+        } catch (err) {
+          console.error(err);
+          setStatus('Erro ao carregar perfil.', true);
+        }
+      }
+
+      loadProfile();
+    </script>
+  </body>
+</html>

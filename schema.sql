@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS Advogados (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL,
+  Email TEXT NOT NULL,
+  telefone INTEGER NOT NULL,
+  biografia TEXT,
+  especializacao TEXT NOT NULL,
+  cep TEXT,
+  experiencia INTEGER,
+  casos_ganhos INTEGER,
+  endereco TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS Clientes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  nome TEXT NOT NULL,
+  Email TEXT,
+  telefone INTEGER NOT NULL,
+  endereco TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS Usuarios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,
+  senha_hash TEXT NOT NULL,
+  tipo TEXT NOT NULL CHECK(tipo IN ('advogado', 'cliente')),
+  perfil_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

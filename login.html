@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - AdvogadoPro</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+
+  <body>
+    <main class="container" style="padding-top: 4rem;">
+      <section class="card" style="max-width: 450px; margin: 0 auto;">
+        <div class="card-body">
+          <h1 class="card-title" style="margin-bottom: 0.5rem;">Acesse sua conta</h1>
+          <p class="card-meta">Faça login para visualizar os advogados disponíveis.</p>
+
+          <form id="loginForm" action="/login" method="post" style="display: grid; gap: 1rem; margin-top: 1.5rem;">
+            <label>
+              E-mail
+              <input name="email" type="email" required autocomplete="username" />
+            </label>
+            <label>
+              Senha
+              <input name="password" type="password" required autocomplete="current-password" />
+            </label>
+            <button class="card-action" type="submit">Entrar</button>
+          </form>
+
+          <p class="card-info" style="margin-top: 1rem;">
+            Não tem conta? <a href="/register">Criar conta</a>
+          </p>
+
+          <p class="card-info" id="error" style="display: none; color: #b91c1c; margin-top: 1rem;">Usuário ou senha inválidos.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      // Optional: show inline validation message when redirected with ?error
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('error')) {
+        document.getElementById('error').style.display = 'block';
+      }
+    </script>
+  </body>
+</html>
