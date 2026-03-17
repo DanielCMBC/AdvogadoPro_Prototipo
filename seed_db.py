@@ -75,11 +75,12 @@ def lawyer_exists(conn: sqlite3.Connection, email: str) -> bool:
 
 def insert_lawyer(conn: sqlite3.Connection, lawyer: Dict[str, object]) -> None:
     cur = conn.cursor()
+    email = str(lawyer["email"]).lower().strip()
     cur.execute(
         "INSERT INTO Advogados (nome, Email, telefone, biografia, especializacao, cep, experiencia, casos_ganhos, endereco) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
             lawyer["nome"],
-            lawyer["email"],
+            email,
             lawyer["telefone"],
             lawyer["biografia"],
             lawyer["especializacao"],
@@ -93,7 +94,7 @@ def insert_lawyer(conn: sqlite3.Connection, lawyer: Dict[str, object]) -> None:
     pw_hash = generate_password_hash("password123")
     cur.execute(
         "INSERT INTO Usuarios (email, senha_hash, tipo, perfil_id) VALUES (?, ?, ?, ?)",
-        (lawyer["email"].lower().strip(), pw_hash, "advogado", perfil_id),
+        (email, pw_hash, "advogado", perfil_id),
     )
 
 

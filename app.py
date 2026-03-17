@@ -19,9 +19,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.secret_key = "replace-with-a-secure-secret"
 
-DB_PATH = "advogados.db"
-SCHEMA_FILE = "schema.sql"
-UPLOAD_DIR = os.path.join("static", "uploads")
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_PATH = os.path.join(BASE_DIR, "advogados.db")
+SCHEMA_FILE = os.path.join(BASE_DIR, "schema.sql")
+UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 
 
 @dataclass
@@ -32,6 +33,8 @@ class Lawyer:
     city: str
     description: str
     price_per_hour: float
+    experiencia: int
+    casos_ganhos: int
 
 
 @dataclass
@@ -57,8 +60,12 @@ def init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
-        cursor.executescript(f.read())
+    # Verifica se as tabelas já existem para evitar que os dados sejam apagados
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    tables = cursor.fetchall()
+    if not tables:
+        with open(SCHEMA_FILE, "r", encoding="utf-8") as f:
+            cursor.executescript(f.read())
 
     conn.commit()
     conn.close()
@@ -205,9 +212,17 @@ def save_uploaded_photo(user_id: int, file) -> Optional[str]:
     return f"/static/uploads/{name}"
 
 
-def update_profile_for_user(session_user: UserSession, data: dict, photo_url: Optional[str] = None) -> None:
+def update_profile_for_user(session_user: UserSession, data: dict, photo_url: Optional[str] = None) -> str:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    new_email = data.get("email", session_user.email).strip().lower()
+    if new_email and new_email != session_user.email:
+        cursor.execute("SELECT id FROM Usuarios WHERE email = ?", (new_email,))
+        if cursor.fetchone():
+            new_email = session_user.email
+        else:
+            cursor.execute("UPDATE Usuarios SET email = ? WHERE id = ?", (new_email, session_user.id))
 
     if photo_url is not None:
         cursor.execute("UPDATE Usuarios SET foto = ? WHERE id = ?", (photo_url, session_user.id))
@@ -234,7 +249,7 @@ def update_profile_for_user(session_user: UserSession, data: dict, photo_url: Op
         ]
         params = [
             data.get("nome", session_user.email),
-            session_user.email,
+            new_email,
             telefone,
             endereco,
             especializacao,
@@ -261,7 +276,7 @@ def update_profile_for_user(session_user: UserSession, data: dict, photo_url: Op
             "UPDATE Clientes SET nome = ?, Email = ?, telefone = ?, endereco = ? WHERE id = ?",
             (
                 data.get("nome", session_user.email),
-                session_user.email,
+                new_email,
                 telefone,
                 endereco,
                 session_user.perfil_id,
@@ -270,30 +285,64 @@ def update_profile_for_user(session_user: UserSession, data: dict, photo_url: Op
 
     conn.commit()
     conn.close()
+    return new_email
 
 
-def get_lawyers_from_db(query: Optional[str] = None) -> List[Lawyer]:
+def get_lawyers_from_db(
+    query: Optional[str] = None,
+    especializacao: Optional[str] = None,
+    min_experiencia: Optional[int] = None,
+    max_preco: Optional[float] = None,
+    sort_by: Optional[str] = None
+) -> List[Lawyer]:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Retornamos o ID do usuário (Usuarios.id) para poder linkar ao perfil.
     base_query = (
         "SELECT Usuarios.id, Advogados.nome, Advogados.especializacao, Advogados.endereco, "
-        "Advogados.biografia, Advogados.preco_hora "
+        "Advogados.biografia, Advogados.preco_hora, Advogados.experiencia, Advogados.casos_ganhos "
         "FROM Advogados "
         "JOIN Usuarios ON Usuarios.perfil_id = Advogados.id AND Usuarios.tipo = 'advogado' "
     )
 
+    conditions = []
+    params = []
+
     if query:
         q = f"%{query.strip().lower()}%"
-        cursor.execute(
-            base_query
-            + "WHERE LOWER(Advogados.nome) LIKE ? OR LOWER(Advogados.especializacao) LIKE ? "
-            + "OR LOWER(Advogados.endereco) LIKE ? OR LOWER(Advogados.biografia) LIKE ?",
-            (q, q, q, q),
+        conditions.append(
+            "(LOWER(Advogados.nome) LIKE ? OR LOWER(Advogados.especializacao) LIKE ? "
+            "OR LOWER(Advogados.endereco) LIKE ? OR LOWER(Advogados.biografia) LIKE ?)"
         )
-    else:
-        cursor.execute(base_query)
+        params.extend([q, q, q, q])
+
+    if especializacao:
+        conditions.append("LOWER(Advogados.especializacao) LIKE ?")
+        params.append(f"%{especializacao.strip().lower()}%")
+
+    if min_experiencia is not None:
+        conditions.append("Advogados.experiencia >= ?")
+        params.append(min_experiencia)
+
+    if max_preco is not None:
+        conditions.append("Advogados.preco_hora <= ?")
+        params.append(max_preco)
+
+    sql = base_query
+    if conditions:
+        sql += " WHERE " + " AND ".join(conditions)
+
+    if sort_by == "experiencia_desc":
+        sql += " ORDER BY Advogados.experiencia DESC"
+    elif sort_by == "experiencia_asc":
+        sql += " ORDER BY Advogados.experiencia ASC"
+    elif sort_by == "preco_desc":
+        sql += " ORDER BY Advogados.preco_hora DESC"
+    elif sort_by == "preco_asc":
+        sql += " ORDER BY Advogados.preco_hora ASC"
+
+    cursor.execute(sql, tuple(params))
 
     rows = cursor.fetchall()
     conn.close()
@@ -306,6 +355,8 @@ def get_lawyers_from_db(query: Optional[str] = None) -> List[Lawyer]:
             city=row[3],
             description=row[4] or "",
             price_per_hour=row[5] or 0.0,
+            experiencia=row[6] or 0,
+            casos_ganhos=row[7] or 0,
         )
         for row in rows
     ]
@@ -375,7 +426,7 @@ def login() -> str:
 @app.route("/register", methods=["POST"])
 def register() -> str:
     nome = request.form.get("nome", "").strip()
-    email = request.form.get("email", "").strip()
+    email = request.form.get("email", "").strip().lower()
     password = request.form.get("password", "")
     tipo = request.form.get("tipo")
 
@@ -391,12 +442,13 @@ def register() -> str:
     if tipo == "advogado":
         especializacao = request.form.get("especializacao", "")
         cep = request.form.get("cep", "")
+        experiencia = int(request.form.get("experiencia", "0") or 0)
         casos_ganhos = int(request.form.get("casos_ganhos", "0") or 0)
         biografia = request.form.get("biografia", "")
 
         cursor.execute(
             "INSERT INTO Advogados (nome, Email, telefone, biografia, especializacao, cep, experiencia, casos_ganhos, endereco, preco_hora) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (nome, email, 0, biografia, especializacao, cep, 0, casos_ganhos, "", 0.0),
+            (nome, email, 0, biografia, especializacao, cep, experiencia, casos_ganhos, "", 0.0),
         )
     else:
         cursor.execute(
@@ -456,7 +508,11 @@ def api_profile():
     if "foto" in request.files:
         photo_url = save_uploaded_photo(user.id, request.files["foto"])
 
-    update_profile_for_user(user, request.form, photo_url=photo_url)
+    new_email = update_profile_for_user(user, request.form, photo_url=photo_url)
+    if new_email != user.email:
+        session["user"]["email"] = new_email
+        session.modified = True
+
     return jsonify({"success": True})
 
 
@@ -479,7 +535,21 @@ def api_lawyers():
         return jsonify({"error": "unauthorized"}), 401
 
     query = request.args.get("q", "")
-    lawyers = get_lawyers_from_db(query=query)
+    especializacao = request.args.get("especializacao")
+    sort_by = request.args.get("sort_by")
+
+    min_exp_str = request.args.get("min_experiencia")
+    min_experiencia = int(min_exp_str) if min_exp_str and min_exp_str.isdigit() else None
+
+    max_preco_str = request.args.get("max_preco")
+    try:
+        max_preco = float(max_preco_str) if max_preco_str else None
+    except ValueError:
+        max_preco = None
+
+    lawyers = get_lawyers_from_db(
+        query=query, especializacao=especializacao, min_experiencia=min_experiencia, max_preco=max_preco, sort_by=sort_by
+    )
     return jsonify([asdict(l) for l in lawyers])
 
 
@@ -516,17 +586,25 @@ def debug_db():
     if key != DEBUG_DB_KEY:
         return jsonify({"error": "unauthorized"}), 401
 
-    results = {
-        "Advogados": _fetch_rows("Advogados"),
-        "Clientes": _fetch_rows("Clientes"),
-        "Usuarios": _fetch_rows("Usuarios"),
-    }
-
+    table_names = ["Advogados", "Clientes", "Usuarios"]
     fmt = request.args.get("format", "json").lower()
     if fmt == "html":
-        tables = "".join(_to_html_table(name, rows) for name, rows in results.items())
-        return f"<html><body><h1>Debug DB</h1>{tables}</body></html>"
+        html_parts = ["<html><body><h1>Debug DB</h1>"]
+        for table in table_names:
+            try:
+                rows = _fetch_rows(table)
+                html_parts.append(_to_html_table(table, rows))
+            except Exception as e:
+                html_parts.append(f"<h2>Error fetching {table}</h2><pre>{e}</pre>")
+        html_parts.append("</body></html>")
+        return "".join(html_parts)
 
+    results = {}
+    for table in table_names:
+        try:
+            results[table] = _fetch_rows(table)
+        except Exception as e:
+            results[table] = {"error": str(e)}
     return jsonify(results)
 
 
