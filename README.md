@@ -63,3 +63,25 @@ Depois, abra no navegador:
 - Os dados são armazenados em `advogados.db` (SQLite). O esquema está em `schema.sql`.
 - Perfis ficam em `Advogados` ou `Clientes`, ligados pela tabela `Usuarios`.
 - Fotos de perfil enviadas são salvas em `static/uploads/` (ignorado pelo git).
+
+## Acessando o banco de dados SQLite
+
+Para inspecionar e manipular o banco de dados diretamente pelo terminal usando a ferramenta de linha de comando do SQLite:
+
+```bash
+sqlite3 advogados.db
+```
+
+Alguns comandos úteis dentro do painel do `sqlite3`:
+
+- `.tables` - Lista todas as tabelas existentes.
+- `.schema <nome_da_tabela>` - Mostra o comando SQL usado para criar a tabela.
+- `SELECT * FROM Usuarios;` - Executa uma consulta (não esqueça do ponto e vírgula `;` no final).
+- `.quit` ou `.exit` - Sai da interface do SQLite.
+
+## Observações
+
+- Os dados são armazenados em `advogados.db` (SQLite). O esquema está em `schema.sql`.
+- Perfis ficam em `Advogados` ou `Clientes`, ligados pela tabela `Usuarios`.
+- Fotos de perfil enviadas são salvas em `static/uploads/` (ignorado pelo git).
+
